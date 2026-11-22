@@ -2,7 +2,9 @@
 // env var. CORS is open so the dashboard also works as a file saved on your desktop.
 import { netlifyStore } from "../../lib/store.mjs";
 import { readEnv } from "../../lib/env.mjs";
-import { runEbay, runRetail, runHourly } from "../../lib/core.mjs";
+import { runEbay, runRetail, runHourly, refreshStock, stockWithPricing, runStoreWatch, buildSharedProviders } from "../../lib/core.mjs";
+import { totals } from "../../lib/inventory.mjs";
+import { matchManual } from "../../lib/comps.mjs";
 import { withDefaults, validateConfig, DEFAULT_CONFIG } from "../../lib/config.mjs";
 import { EbayClient, toListing } from "../../lib/ebay.mjs";
 import { sendNtfy } from "../../lib/ntfy.mjs";
@@ -45,7 +47,9 @@ export default async (req) => {
         return json({
           now: new Date().toISOString(),
           paused: !!cfg.paused,
-          env: { ebayKeys: !!(env.EBAY_CLIENT_ID && env.EBAY_CLIENT_SECRET), ntfy: !!env.NTFY_TOPIC },
+          env: { ebayKeys: !!(env.EBAY_CLIENT_ID && env.EBAY_CLIENT_SECRET), ntfy: !!env.NTFY_TOPIC, tcgprices: !!env.TCGPRICES_API_KEY },
+          tcgpricesUsage: (await store.get("tcgprices-usage", {}))[new Date().toISOString().slice(0, 7)] || 0,
+          storeCallsToday: (await store.get("store-calls", {}))[utcDay()] || 0,
           ebay: {
             callsTodayUTC: eb.calls?.[utcDay()] || 0, cap: cfg.ebay.daily_call_cap, callsLocalToday: eb.callsLocal?.[ld] || 0,
             lastPolled: eb.lastPolled || {}, seenCount: Object.keys(eb.seen || {}).length,
@@ -98,6 +102,36 @@ export default async (req) => {
       }
       case "POST run/heartbeat": return json(await runHourly({ store, env, forceHeartbeat: true }));
 
+      case "GET stock": {
+        const cfg = withDefaults(await store.get("config"));
+        const items = await store.get("stock", []);
+        const s = { fee_rate: cfg.ebay.fee_rate, outbound_postage: cfg.ebay.outbound_postage, ...cfg.stock };
+        return json({ items: stockWithPricing(items, cfg), totals: totals(items, s) });
+      }
+      case "PUT stock": {
+        if (!Array.isArray(body.items)) return json({ ok: false, error: "items must be a list" }, 400);
+        await store.set("stock", body.items);
+        return json({ ok: true });
+      }
+      case "POST stock/refresh": return json(await refreshStock({ store, env, ids: Array.isArray(body.ids) ? body.ids : null }));
+      case "GET store": return json(await store.get("store-state", { lastRun: null, listings: [] }));
+      case "POST run/store": return json(await runStoreWatch({ store, env, force: true, dryRun: dry }));
+      case "POST test-comp": {
+        // Fresh lookup (ignores the cache) so you can see exactly what each source returns.
+        const cfg = withDefaults(await store.get("config"));
+        const q = String(body.query || "").trim();
+        if (!q) return json({ ok: false, error: "Enter a card or product name" }, 400);
+        const logs = [];
+        const tcgCounter = await store.get("tcgprices-usage", {});
+        const results = [];
+        for (const p of buildSharedProviders(cfg, env, { trackerPolite: {}, alerter: { notice: async () => {} }, now: () => new Date(), fetchImpl: fetch, log: (m) => logs.push(m), tcgCounter })) {
+          try { results.push({ source: p.label, result: await p.fetch(q, new Date()) }); }
+          catch (e) { results.push({ source: p.label, error: e.message }); }
+        }
+        await store.set("tcgprices-usage", tcgCounter);
+        const manual = matchManual(q, cfg.comps.manual);
+        return json({ ok: true, query: q, results, manual: manual ? { name: manual.name, comp_aud: manual.comp_aud, comp_date: manual.comp_date } : null, log: logs, note: results.length ? "" : "No live sources are on. Add TCGPRICES_API_KEY on Netlify, or turn on Marketplace Insights once eBay approves it." });
+      }
       case "POST unblock": {
         const rt = await store.get("retail-state", {});
         if (rt.polite?.blocks?.[body.retailer]) delete rt.polite.blocks[body.retailer];

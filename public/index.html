@@ -41,7 +41,7 @@
   .item .top .row{flex-wrap:nowrap}
   .item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px}
   .item .top{display:flex;justify-content:space-between;gap:8px;align-items:center}
-  .item .top b{font-size:14px}
+  .item .top b{font-size:14px;color:var(--text)}
   pre{white-space:pre-wrap;word-break:break-word;margin:6px 0 0;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;color:#d6dae2}
   .mute{color:var(--mute);font-size:12px}
   .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:650;background:var(--line)}
@@ -60,6 +60,24 @@
   .savebar button{width:100%;box-shadow:0 6px 24px rgba(0,0,0,.5)}
   .spark{font-family:ui-monospace,monospace;letter-spacing:1px;color:var(--acc)}
   ol.check{padding-left:20px;margin:6px 0} ol.check li{margin:4px 0}
+  .combo{position:relative}
+  .combo input{padding-right:38px}
+  .combo .cbtn{position:absolute;right:4px;top:4px;bottom:4px;width:32px;border:0;border-radius:7px;background:var(--panel2);color:var(--mute);font-size:14px;cursor:pointer}
+  .cpanel{display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;background:#12151b;border:1px solid var(--line);border-radius:10px;max-height:300px;overflow:auto;box-shadow:0 12px 32px rgba(0,0,0,.6)}
+  .cpanel.open{display:block}
+  .cpanel .grp{position:sticky;top:0;background:#1a1e26;color:var(--acc);font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:6px 10px}
+  .cpanel .opt{padding:10px 12px;border-bottom:1px solid #1c2029;cursor:pointer;font-size:14px}
+  .cpanel .opt:active,.cpanel .opt:hover{background:#222833}
+  .cpanel .typed{color:var(--mute);font-style:italic}
+  .big{font-size:22px;font-weight:700;color:var(--good)}
+  .kv{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+  .kv div{background:var(--bg);border-radius:8px;padding:6px 8px}
+  .kv .k{font-size:11px;color:var(--mute)} .kv .v{font-weight:650}
+  .warnbox{color:var(--warn);font-size:12px;margin-top:6px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .chips button{border:1px solid var(--line);background:var(--panel2);color:var(--mute);border-radius:20px;padding:6px 12px;font-size:13px;cursor:pointer}
+  .chips button.on{color:#111;background:var(--acc);border-color:var(--acc)}
+  .pill.lower{background:rgba(90,169,255,.18);color:var(--blue)} .pill.raise{background:rgba(62,207,142,.18);color:var(--good)} .pill.below{background:rgba(255,93,93,.2);color:var(--bad)}
   @media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}}
 </style>
 </head>
@@ -70,7 +88,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const DEFAULT_SITE = "https://card-deal-sniper.netlify.app";
+const DEFAULT_SITE = "https://dancing-hummingbird-63c97a.netlify.app";
 const LS = { get(k, d) { try { return JSON.parse(localStorage.getItem("cds_" + k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem("cds_" + k, JSON.stringify(v)); } catch {} } };
 const onNetlify = /^https?:$/.test(location.protocol) && !/^(localhost|127\.)/.test(location.hostname);
 let conn = { base: onNetlify ? location.origin : LS.get("base", DEFAULT_SITE), key: LS.get("key", "") };
@@ -80,6 +98,17 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const money = (n) => (n === null || n === undefined || n === "") ? "-" : "$" + Number(n).toFixed(2).replace(/\.00$/, "");
 const until = (iso) => { const m = Math.max(1, Math.round((new Date(iso) - Date.now()) / 60000)); return m < 90 ? `in ${m} min` : `in ${Math.round(m / 60)} h`; };
 const ago = (iso) => { if (!iso) return "never"; const s = (Date.now() - new Date(iso)) / 1000; if (s < 60) return "just now"; if (s < 3600) return Math.round(s / 60) + " min ago"; if (s < 86400) return Math.round(s / 3600) + " h ago"; return Math.round(s / 86400) + " d ago"; };
+// Times shown in your configured zone (default Melbourne/Sydney time: AEST, AEDT in summer).
+function tzName() { return (cfg && cfg.timezone) || "Australia/Sydney"; }
+function fmtTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso); if (isNaN(d)) return "";
+  try { return new Intl.DateTimeFormat("en-AU", { timeZone: tzName(), day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short" }).format(d).replace(",", ""); }
+  catch { return d.toLocaleString(); }
+}
+function fmtDate(iso) { if (!iso) return ""; try { return new Intl.DateTimeFormat("en-AU", { timeZone: tzName(), day: "numeric", month: "short", year: "numeric" }).format(new Date(iso)); } catch { return iso; } }
+function localToday() { const p = Object.fromEntries(new Intl.DateTimeFormat("en-AU", { timeZone: tzName(), year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((x) => [x.type, x.value])); return `${p.year}-${p.month}-${p.day}`; }
+const when = (iso) => iso ? `${fmtTime(iso)} · ${ago(iso)}` : "never";
 function toast(msg, ms = 2600) { const t = $("#toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => (t.style.display = "none"), ms); }
 
 async function api(path, opts = {}) {
@@ -126,10 +155,10 @@ async function boot() {
   renderNav(); render();
 }
 
-const TABS = [["home", "◉", "Home"], ["deals", "$", "Deals"], ["ebay", "e", "eBay"], ["comps", "≈", "Comps"], ["retail", "▦", "Retail"], ["settings", "⚙", "Settings"]];
+const TABS = [["home", "◉", "Home"], ["deals", "$", "Deals"], ["stock", "▣", "Stock"], ["ebay", "e", "eBay"], ["comps", "≈", "Comps"], ["retail", "▦", "Retail"], ["settings", "⚙", "Settings"]];
 function renderNav() {
   $("#nav").innerHTML = TABS.map(([k, i, l]) => `<button data-t="${k}" class="${tab === k ? "on" : ""}"><b>${i}</b>${l}</button>`).join("");
-  $("#nav").querySelectorAll("button").forEach((b) => (b.onclick = () => { if (dirty && !confirm("You have unsaved changes. Leave this tab without saving?")) return; if (dirty) { dirty = false; boot(); } tab = b.dataset.t; LS.set("tab", tab); renderNav(); render(); scrollTo(0, 0); }));
+  $("#nav").querySelectorAll("button").forEach((b) => (b.onclick = () => { if ((dirty || stockDirty) && !confirm("You have unsaved changes. Leave this tab without saving?")) return; if (stockDirty) { stockDirty = false; stock = null; } if (dirty) { dirty = false; boot(); } tab = b.dataset.t; LS.set("tab", tab); renderNav(); render(); scrollTo(0, 0); }));
   const pb = $("#pauseBtn"); pb.style.display = "";
   pb.textContent = cfg.paused ? "▶ Resume" : "❚❚ Pause";
   pb.onclick = async () => { cfg.paused = !cfg.paused; await saveConfig(true); };
@@ -138,7 +167,7 @@ function renderNav() {
 }
 
 function render() {
-  try { ({ home: renderHome, deals: renderDeals, ebay: renderEbay, comps: renderComps, retail: renderRetail, settings: renderSettings })[tab](); }
+  try { ({ home: renderHome, deals: renderDeals, stock: renderStock, ebay: renderEbay, comps: renderComps, retail: renderRetail, settings: renderSettings })[tab](); }
   catch (e) { $("#app").innerHTML = `<div class="err">Display error: ${esc(e.message)}</div>`; console.error(e); }
 }
 
@@ -185,7 +214,7 @@ function renderHome() {
   if (!s.env.ntfy) warn.push("NTFY_TOPIC isn't set on Netlify - no alerts can reach your phone.");
   if (!s.env.ebayKeys) warn.push("eBay keys not set yet (EBAY_CLIENT_ID / EBAY_CLIENT_SECRET). The eBay watcher is idle until you add them.");
   if (e.accessErrorDay) warn.push("eBay refused production Browse access - you probably need the Application Growth Check (see Settings > Help).");
-  if (e.tokenFailSince) warn.push(`eBay login failing since ${ago(e.tokenFailSince)} - check the keys are PRODUCTION keys.`);
+  if (e.tokenFailSince) warn.push(`eBay login failing since ${fmtTime(e.tokenFailSince)} - check the keys are PRODUCTION keys.`);
   s.configErrors.forEach((x) => warn.push("Config: " + x));
   $("#app").innerHTML = `
   ${cfg.paused ? `<div class="err">Paused - nothing is being checked. Tap Resume at the top.</div>` : ""}
@@ -196,8 +225,8 @@ function renderHome() {
     <div class="stat"><div class="k">Searches</div><div class="v">${cfg.ebay.searches.length}</div></div>
     <div class="stat"><div class="k">Retail watches</div><div class="v">${cfg.retailers.watches.length}</div></div>
   </div>
-  <p class="mute" style="margin:10px 0 0">Last heartbeat: ${s.meta.heartbeatDate || "not yet"} · hourly job ${ago(s.meta.lastHourly)} · ${e.seenCount} listings remembered</p></div>
-  ${blocks.length ? `<div class="card"><h2>Backing off</h2>${blocks.map(([k, b]) => `<div class="item"><div class="top"><b>${esc(k)}</b><button class="btn sm" onclick="unblock('${esc(k)}')">Clear</button></div><div class="mute">${esc(b.lastStatus)} · retry ${until(b.until)} (until ${new Date(b.until).toLocaleTimeString()})</div></div>`).join("")}</div>` : ""}
+  <p class="mute" style="margin:10px 0 0">Last heartbeat: ${s.meta.heartbeatDate || "not yet"} · hourly job ${when(s.meta.lastHourly)} · ${e.seenCount} listings remembered</p></div>
+  ${blocks.length ? `<div class="card"><h2>Backing off</h2>${blocks.map(([k, b]) => `<div class="item"><div class="top"><b>${esc(k)}</b><button class="btn sm" onclick="unblock('${esc(k)}')">Clear</button></div><div class="mute">${esc(b.lastStatus)} · retry ${until(b.until)} (until ${fmtTime(b.until)})</div></div>`).join("")}</div>` : ""}
   <div class="card"><h2>Checks</h2>
     <div class="row">
       <button class="btn" onclick="action('Test notification','test-ntfy')">Test phone alert</button>
@@ -223,59 +252,173 @@ async function renderDeals() {
       const { alerts } = await api("alerts");
       $("#list").innerHTML = alerts.length ? alerts.map((a) => {
         const v = /-> BUY/.test(a.body) ? ["buy", "BUY"] : /-> WAIT/.test(a.body) ? ["wait", "WAIT"] : a.kind === "restock" ? ["restock", "RESTOCK"] : ["drop", "PRICE"];
-        return `<div class="item"><div class="top"><span class="pill ${v[0]}">${v[1]}</span><span class="mute">${ago(a.sentAt)}${a.queued ? " · in summary" : ""}${a.error ? " · send failed" : ""}</span></div><b>${esc(a.title.replace(/^(DEAL|RESTOCK|PRICE DROP): /, ""))}</b><pre>${esc(a.body.replace(/\n\nhttps?:\S+$/, ""))}</pre>${a.url ? `<div style="margin-top:6px"><a href="${esc(a.url)}" target="_blank" rel="noopener">Open listing →</a></div>` : ""}</div>`;
+        return `<div class="item"><div class="top"><span class="pill ${v[0]}">${v[1]}</span><span class="mute">${when(a.sentAt)}${a.queued ? " · in summary" : ""}${a.error ? " · send failed" : ""}</span></div><b>${esc(a.title.replace(/^(DEAL|RESTOCK|PRICE DROP): /, ""))}</b><pre>${esc(a.body.replace(/\n\nhttps?:\S+$/, ""))}</pre>${a.url ? `<div style="margin-top:6px"><a href="${esc(a.url)}" target="_blank" rel="noopener">Open listing →</a></div>` : ""}</div>`;
       }).join("") : `<div class="card mute">No alerts yet. They'll show here as well as on your phone.</div>`;
     } else {
       const { misses } = await api("misses");
-      $("#list").innerHTML = `<p class="mute">Listings with no comp to judge them by. Tap "Add comp" to teach the app.</p>` + (misses.length ? misses.map((m, i) => `<div class="item"><div class="top"><b>${esc(m.title)}</b></div><div class="mute">Landed ${money(m.landed)} · ${ago(m.seenAt)} · search "${esc(m.q || "")}"</div><div class="row" style="margin-top:8px"><a href="${esc(m.url)}" target="_blank" rel="noopener">Open</a><button class="btn sm" data-i="${i}">Add comp</button></div></div>`).join("") : `<div class="card mute">No misses.</div>`);
+      $("#list").innerHTML = `<p class="mute">Listings with no comp to judge them by. Tap "Add comp" to teach the app.</p>` + (misses.length ? misses.map((m, i) => `<div class="item"><div class="top"><b>${esc(m.title)}</b></div><div class="mute">Landed ${money(m.landed)} · ${when(m.seenAt)} · search "${esc(m.q || "")}"</div><div class="row" style="margin-top:8px"><a href="${esc(m.url)}" target="_blank" rel="noopener">Open</a><button class="btn sm" data-i="${i}">Add comp</button></div></div>`).join("") : `<div class="card mute">No misses.</div>`);
       $("#list").querySelectorAll("button[data-i]").forEach((b) => (b.onclick = () => {
         const m = misses[b.dataset.i];
-        cfg.comps.manual.push({ name: m.title.slice(0, 60), match_keywords: [m.title.toLowerCase().slice(0, 40)], comp_aud: null, comp_source: "", comp_date: new Date().toISOString().slice(0, 10) });
+        cfg.comps.manual.push({ name: m.title.slice(0, 60), match_keywords: [m.title.toLowerCase().slice(0, 40)], comp_aud: null, comp_source: "", comp_date: localToday() });
         dirty = true; tab = "comps"; LS.set("tab", tab); renderNav(); render(); toast("Comp added - trim the keyword and set a price, then Save");
       }));
     }
   } catch (e) { $("#list").innerHTML = `<div class="err">${esc(e.message)}</div>`; }
 }
 
-/* ---------------- generic list editor ---------------- */
-// fields: [key, label, type, opts]
-function listEditor(arr, fields, title, newItem) {
-  const id = "le" + Math.random().toString(36).slice(2, 7);
-  setTimeout(() => {
-    const root = document.getElementById(id);
-    root.querySelectorAll("[data-f]").forEach((inp) => {
-      const [i, k, type] = inp.dataset.f.split("|");
-      const ev = inp.type === "checkbox" || inp.tagName === "SELECT" ? "change" : "input";
-      inp.addEventListener(ev, () => {
-        const o = arr[+i];
-        let v = inp.type === "checkbox" ? inp.checked : inp.value;
-        if (type === "num") v = v === "" ? undefined : Number(v);
-        if (type === "list") v = v.split(",").map((x) => x.trim()).filter(Boolean);
-        if (type === "dt") v = v ? new Date(v).toISOString() : undefined;
-        if (v === undefined || v === "" || (Array.isArray(v) && !v.length && type === "list" && k !== "match_keywords")) delete o[k]; else o[k] = v;
-        markDirty();
-      });
+/* ---------------- catalog + dropdowns ---------------- */
+const GRADES = ["Raw", "PSA 10", "PSA 9", "PSA 8", "CGC 10", "CGC 9.5", "CGC 9", "BGS 10", "BGS 9.5", "ACE 10", "TAG 10"];
+function catalog() { return (cfg && cfg.catalog) || (defaults && defaults.catalog) || { set_groups: [], products: [] }; }
+function optionGroups(src) {
+  const c = catalog();
+  if (src === "sets") return c.set_groups.map((g) => ({ label: g.era, items: g.sets }));
+  if (src === "products") {
+    const by = {};
+    c.products.forEach((p) => { (by[p.group || "Products"] ||= []).push(p.name); });
+    return Object.entries(by).map(([label, items]) => ({ label, items }));
+  }
+  if (src === "grades") return [{ label: "Grade", items: GRADES }];
+  if (src === "sealed_or_card") {
+    return [{ label: "Sealed products (or type a card name)", items: c.products.map((p) => p.name) }];
+  }
+  return [];
+}
+const norm = (x) => String(x || "").normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+// Work out set + product from an existing name, so old entries show in the dropdowns.
+function detectParts(name) {
+  const n = ` ${norm(name)} `;
+  let set = "", product = "";
+  for (const g of catalog().set_groups) for (const st of g.sets) {
+    const v = [norm(st), norm(st.replace(/&/g, "and"))];
+    if (v.some((x) => x && n.includes(` ${x} `)) && st.length > set.length) set = st;
+  }
+  let best = 0;
+  for (const p of catalog().products) for (const a of p.aliases || [p.name]) {
+    const x = norm(a);
+    if (x && n.includes(` ${x} `) && x.length > best) { best = x.length; product = p.name; }
+  }
+  return { set, product };
+}
+function keywordsFor(set, product) {
+  const sets = [...new Set([set, set.replace(/&/g, "and")].filter(Boolean))];
+  const p = catalog().products.find((x) => x.name === product);
+  const aliases = product ? (p ? p.aliases : [product]) : [""];
+  const out = [];
+  (sets.length ? sets : [""]).forEach((sv) => aliases.forEach((a) => { const k = `${sv} ${a}`.trim().toLowerCase(); if (k) out.push(k); }));
+  return [...new Set(out)];
+}
+const baseName = (o) => [o.set, o.product].filter(Boolean).join(" ");
+
+// What picking a set/product fills in, per screen.
+const AUTOFILL = {
+  comps(o) { if (!o.set && !o.product) return; o.name = baseName(o); o.match_keywords = keywordsFor(o.set || "", o.product || ""); },
+  ebay(o) { if (!o.set && !o.product) return; o.q = `pokemon ${baseName(o)}`; o.comp_query = baseName(o); },
+  retail(o) { if (!o.set && !o.product) return; o.query = `pokemon ${baseName(o)}`; o.match = baseName(o); },
+  stock() {},
+};
+
+function comboHtml(attr, value, src, ph) {
+  return `<div class="combo"><input type="text" ${attr} data-src="${src}" value="${esc(value ?? "")}" placeholder="${esc(ph || "Tap ▾ or type")}" autocomplete="off"><button type="button" class="cbtn" tabindex="-1">▾</button><div class="cpanel"></div></div>`;
+}
+// Wire every .combo inside root. onPick(input, value) is called when an option is chosen.
+function bindCombos(root, onPick) {
+  root.querySelectorAll(".combo").forEach((box) => {
+    const inp = box.querySelector("input"), panel = box.querySelector(".cpanel"), btn = box.querySelector(".cbtn");
+    const draw = (filter) => {
+      const f = norm(filter);
+      let html = "", n = 0;
+      if (f) html += `<div class="opt typed" data-v="${esc(filter)}">Use "${esc(filter)}"</div>`;
+      for (const g of optionGroups(inp.dataset.src)) {
+        const items = g.items.filter((x) => !f || norm(x).includes(f));
+        if (!items.length) continue;
+        html += `<div class="grp">${esc(g.label)}</div>` + items.slice(0, 120).map((x) => `<div class="opt" data-v="${esc(x)}">${esc(x)}</div>`).join("");
+        n += items.length;
+      }
+      panel.innerHTML = html || `<div class="opt typed">No match - keep typing to use your own text</div>`;
+      panel.classList.add("open");
+    };
+    const close = () => panel.classList.remove("open");
+    inp.addEventListener("focus", () => draw(""));
+    inp.addEventListener("input", () => draw(inp.value));
+    inp.addEventListener("blur", () => setTimeout(close, 180));
+    btn.addEventListener("pointerdown", (e) => { e.preventDefault(); if (panel.classList.contains("open")) close(); else { inp.focus(); draw(""); } });
+    panel.addEventListener("pointerdown", (e) => {
+      const opt = e.target.closest(".opt[data-v]");
+      if (!opt) return;
+      e.preventDefault();
+      inp.value = opt.dataset.v;
+      close();
+      onPick(inp, opt.dataset.v);
     });
-    root.querySelectorAll("[data-del]").forEach((b) => (b.onclick = () => { if (confirm("Remove this?")) { arr.splice(+b.dataset.del, 1); dirty = true; render(); } }));
-    root.querySelectorAll("[data-test]").forEach((b) => (b.onclick = () => action("Test watch", "run/retail?dry=1", { only: +b.dataset.test }, document.getElementById("t" + b.dataset.test))));
-    root.querySelector("[data-add]").onclick = () => { arr.push(newItem()); dirty = true; render(); };
   });
-  const val = (o, k, type) => {
+}
+
+/* ---------------- generic list editor ---------------- */
+// fields: [key, label, type, opts]  type: str|num|list|date|dt|bool|select|combo|_test
+function fieldHtml(o, i, [k, label, type, opt]) {
+  const full = opt?.full ? ' style="grid-column:1/-1"' : "";
+  const val = (() => {
     const v = o[k];
     if (v === undefined || v === null) return "";
     if (type === "list") return v.join(", ");
     if (type === "dt") { const d = new Date(v); return isNaN(d) ? "" : new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
     return v;
-  };
+  })();
+  if (type === "bool") return `<label${full}><input type="checkbox" data-f="${i}|${k}|bool" ${o[k] ? "checked" : ""}>${esc(label)}</label>`;
+  if (type === "select") return `<div${full}><label>${esc(label)}</label><select data-f="${i}|${k}|str">${opt.options.map(([v, l]) => `<option value="${esc(v)}" ${o[k] === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></div>`;
+  if (type === "combo") return `<div${full}><label>${esc(label)}</label>${comboHtml(`data-f="${i}|${k}|str"`, val, opt.src, opt.ph)}</div>`;
+  const it = type === "num" ? 'type="number" step="any" inputmode="decimal"' : type === "date" ? 'type="date"' : type === "dt" ? 'type="datetime-local"' : 'type="text"';
+  return `<div${full}><label>${esc(label)}</label><input ${it} data-f="${i}|${k}|${type}" value="${esc(val)}" placeholder="${esc(opt?.ph || "")}"></div>`;
+}
+
+function readField(inp) {
+  const [, , type] = inp.dataset.f.split("|");
+  let v = inp.type === "checkbox" ? inp.checked : inp.value;
+  if (type === "num") v = v === "" ? undefined : Number(v);
+  if (type === "list") v = v.split(",").map((x) => x.trim()).filter(Boolean);
+  if (type === "dt") v = v ? new Date(v).toISOString() : undefined;
+  return v;
+}
+
+// Bind inputs in root to arr items. kind = autofill profile. after() runs after any change.
+function bindFields(root, arr, kind, after) {
+  root.querySelectorAll("[data-f]").forEach((inp) => {
+    const [i, k, type] = inp.dataset.f.split("|");
+    const ev = inp.type === "checkbox" || inp.tagName === "SELECT" ? "change" : "input";
+    inp.addEventListener(ev, () => {
+      const o = arr[+i], v = readField(inp);
+      if (v === undefined || v === "" || (Array.isArray(v) && !v.length && type === "list" && k !== "match_keywords")) delete o[k]; else o[k] = v;
+      after();
+    });
+    // typing your own set/product then leaving the box also auto-fills
+    if (inp.dataset.src && (k === "set" || k === "product")) inp.addEventListener("change", () => { AUTOFILL[kind](arr[+i]); render(); });
+  });
+  bindCombos(root, (inp) => {
+    const [i, k] = inp.dataset.f.split("|");
+    arr[+i][k] = inp.value;
+    if (k === "set" || k === "product") AUTOFILL[kind](arr[+i]);
+    after(); render();
+  });
+}
+
+function listEditor(arr, fields, title, newItem, kind = "comps") {
+  const id = "le" + Math.random().toString(36).slice(2, 7);
+  // show detected set/product on older entries
+  if (fields.some((f) => f[0] === "set")) arr.forEach((o) => {
+    if (o.set === undefined && o.product === undefined) { const d = detectParts(o.name || o.q || o.query || ""); if (d.set) o.set = d.set; if (d.product) o.product = d.product; }
+  });
+  setTimeout(() => {
+    const root = document.getElementById(id);
+    if (!root) return;
+    bindFields(root, arr, kind, markDirty);
+    root.querySelectorAll("[data-del]").forEach((b) => (b.onclick = () => { if (confirm("Remove this?")) { arr.splice(+b.dataset.del, 1); dirty = true; render(); } }));
+    root.querySelectorAll("[data-test]").forEach((b) => (b.onclick = () => action("Test watch", "run/retail?dry=1", { only: +b.dataset.test }, document.getElementById("t" + b.dataset.test))));
+    root.querySelector("[data-add]").onclick = () => { arr.push(newItem()); dirty = true; render(); };
+  });
   return `<div id="${id}">${arr.map((o, i) => `<div class="item">
     <div class="top"><b>${esc(title(o, i))}</b><div class="row">${fields.some((f) => f[0] === "_test") ? `<button class="btn sm" data-test="${i}">Test</button>` : ""}<button class="btn sm danger" data-del="${i}">✕</button></div></div>
-    <div class="two">${fields.filter((f) => f[0] !== "_test").map(([k, label, type, opt]) => {
-      const full = opt?.full ? ' style="grid-column:1/-1"' : "";
-      if (type === "bool") return `<label${full}><input type="checkbox" data-f="${i}|${k}|bool" ${o[k] ? "checked" : ""}>${esc(label)}</label>`;
-      if (type === "select") return `<div${full}><label>${esc(label)}</label><select data-f="${i}|${k}|str">${opt.options.map(([v, l]) => `<option value="${esc(v)}" ${o[k] === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></div>`;
-      const it = type === "num" ? 'type="number" step="any" inputmode="decimal"' : type === "date" ? 'type="date"' : type === "dt" ? 'type="datetime-local"' : 'type="text"';
-      return `<div${full}><label>${esc(label)}</label><input ${it} data-f="${i}|${k}|${type}" value="${esc(val(o, k, type))}" placeholder="${esc(opt?.ph || "")}"></div>`;
-    }).join("")}</div>
+    <div class="two">${fields.filter((f) => f[0] !== "_test").map((f) => fieldHtml(o, i, f)).join("")}</div>
     ${fields.some((f) => f[0] === "_test") ? `<div id="t${i}"></div>` : ""}
   </div>`).join("")}
   <button class="btn" data-add>+ Add</button></div>`;
@@ -283,19 +426,23 @@ function listEditor(arr, fields, title, newItem) {
 
 function settingInputs(obj, rows) {
   const id = "si" + Math.random().toString(36).slice(2, 7);
-  setTimeout(() => document.getElementById(id).querySelectorAll("[data-k]").forEach((inp) => inp.addEventListener(inp.type === "checkbox" ? "change" : "input", () => {
+  setTimeout(() => { const r = document.getElementById(id); if (r) r.querySelectorAll("[data-k]").forEach((inp) => inp.addEventListener(inp.type === "checkbox" || inp.tagName === "SELECT" ? "change" : "input", () => {
     const [k, type] = inp.dataset.k.split("|");
     let v = inp.type === "checkbox" ? inp.checked : inp.value;
     if (type === "num") v = Number(v);
     if (type === "lines") v = v.split(/[\n,]/).map((x) => x.trim()).filter(Boolean);
     obj[k] = v; markDirty();
-  })));
-  return `<div id="${id}" class="two">${rows.map(([k, label, type, help]) => {
+  })); });
+  return `<div id="${id}" class="two">${rows.map(([k, label, type, help, opts]) => {
     if (type === "bool") return `<label style="grid-column:1/-1"><input type="checkbox" data-k="${k}|bool" ${obj[k] ? "checked" : ""}>${esc(label)}</label>`;
     if (type === "lines") return `<div style="grid-column:1/-1"><label>${esc(label)}</label><textarea data-k="${k}|lines">${esc((obj[k] || []).join("\n"))}</textarea>${help ? `<div class="mute">${esc(help)}</div>` : ""}</div>`;
+    if (type === "select") return `<div style="grid-column:1/-1"><label>${esc(label)}</label><select data-k="${k}|str">${opts.map(([v, l]) => `<option value="${esc(v)}" ${obj[k] === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>${help ? `<div class="mute">${esc(help)}</div>` : ""}</div>`;
     return `<div><label>${esc(label)}</label><input ${type === "num" ? 'type="number" step="any" inputmode="decimal"' : ""} data-k="${k}|${type}" value="${esc(obj[k] ?? "")}">${help ? `<div class="mute">${esc(help)}</div>` : ""}</div>`;
   }).join("")}</div>`;
 }
+
+const SET_FIELD = ["set", "Set", "combo", { src: "sets", ph: "Pick or type a set" }];
+const PRODUCT_FIELD = ["product", "Product", "combo", { src: "products", ph: "Pick or type a product" }];
 
 /* ---------------- eBay ---------------- */
 function renderEbay() {
@@ -303,14 +450,15 @@ function renderEbay() {
   const perDay = Math.round(eb.searches.length * 1440 / eb.poll_interval_minutes);
   $("#app").innerHTML = `
   <div class="card"><h2>Search terms</h2>
-    <p class="mute">Buy It Now, Australian sellers, newest first. ~${perDay} calls/day of your ${eb.daily_call_cap} cap at ${eb.poll_interval_minutes}-min polling (plus a few for postage lookups).</p>
+    <p class="mute">Pick a set and product to fill in the search, or type your own. Buy It Now, Australian sellers, newest first. ~${perDay} calls/day of your ${eb.daily_call_cap} cap at ${eb.poll_interval_minutes}-min polling.</p>
     ${listEditor(eb.searches, [
+      SET_FIELD, PRODUCT_FIELD,
       ["q", "Search text", "str", { full: true, ph: "pokemon booster box sealed" }],
       ["min_profit", "Min profit $", "num", { ph: "20" }],
       ["max_landed", "Max landed $", "num", { ph: "no limit" }],
-      ["comp_query", "Auto-comp name (optional)", "str", { full: true, ph: "card/product name the trackers know it by" }],
+      ["comp_query", "Auto-comp name", "str", { full: true, ph: "card/product name to price it by" }],
       ["exclude", "Extra exclude words (comma)", "list", { full: true, ph: "japanese, psa" }],
-    ], (o) => o.q || "New search", () => ({ q: "", min_profit: 20 }))}
+    ], (o) => o.q || "New search", () => ({ q: "", min_profit: 20 }), "ebay")}
   </div>
   <div class="card"><h2>Maths & filters</h2>
     ${settingInputs(eb, [
@@ -327,38 +475,62 @@ function renderEbay() {
 
 /* ---------------- Comps ---------------- */
 async function renderComps() {
-  const cs = cfg.comps;
-  const today = new Date().toISOString().slice(0, 10);
-  const staleDays = (d) => Math.floor((Date.now() - new Date(d)) / 864e5);
+  const cs = cfg.comps, tp = cs.tcgprices_api;
+  const today = localToday();
+  const staleDays = (d) => Math.max(0, Math.round((Date.parse(today) - Date.parse(d)) / 864e5));
   $("#app").innerHTML = `
+  <div class="card"><h2>Live AU sold prices</h2>
+    <div class="item"><div class="top"><b>TCG Prices AU</b><span class="pill ${status.env.tcgprices ? "buy" : "wait"}">${status.env.tcgprices ? "KEY SET" : "NO KEY"}</span></div>
+      <div class="mute">eBay Australia sold listings, outliers filtered, graded separated from raw. ${status.tcgpricesUsage} of ${tp.monthly_cap} requests used this month. Comps are re-checked at most every 24h (their terms).</div>
+      ${status.env.tcgprices ? "" : `<div class="warnbox">Get a key at tcgprices.com.au (API, Basic plan) and add it on Netlify as TCGPRICES_API_KEY, then redeploy.</div>`}
+      <label style="margin-top:8px"><input type="checkbox" id="tpOn" ${tp.enabled ? "checked" : ""}>Use TCG Prices AU</label>
+    </div>
+    <div class="item"><div class="top"><b>eBay Marketplace Insights</b><span class="pill ${cs.marketplace_insights_enabled ? "buy" : "wait"}">${cs.marketplace_insights_enabled ? "ON" : "OFF"}</span></div>
+      <div class="mute">eBay's own AU sold data (90 days). Turn on once eBay approves your access.</div></div>
+    <p class="mute">Every sold price is filtered: AU only, AUD only, title must match, no empties/fakes/opened/lots, no graded slabs unless the name says PSA/CGC/BGS, outliers trimmed, median of the last ${cs.sold_filters?.days || 30} days.</p>
+    <label>Test a comp (card or product name)</label>
+    <div class="row" style="flex-wrap:nowrap"><input id="tcq" placeholder="151 Charizard ex 199/165" style="flex:1"><button class="btn" id="tcgo">Check</button></div>
+    <div id="tcout"></div>
+    <p class="mute" style="margin-top:8px">Prices from TCG Prices AU (<a href="https://tcgprices.com.au" target="_blank" rel="noopener">tcgprices.com.au</a>)</p>
+  </div>
   <div class="card"><h2>My comps</h2>
-    <p class="mute">Sold-price estimates the deal maths uses. Fresher auto-comps beat these automatically. Entries with no price still help: they tell the trackers what name to look up.</p>
+    <p class="mute">Your own sold-price estimates. Fresher live comps beat these automatically. Pick a set and product to fill in the name and match keywords. Entries with no price still tell the live sources what to look up.</p>
     ${listEditor(cs.manual, [
+      SET_FIELD, PRODUCT_FIELD,
       ["name", "Name", "str", { full: true }],
       ["match_keywords", "Match keywords (comma)", "list", { full: true, ph: "mega evolution booster bundle" }],
       ["comp_aud", "Sold price $", "num"], ["comp_date", "Checked on", "date"],
-      ["comp_source", "Source", "str", { ph: "eBay sold, 130point..." }], ["fee_rate", "Fee override", "num", { ph: "default" }],
+      ["comp_source", "Source", "str", { ph: "eBay AU sold" }], ["fee_rate", "Fee override", "num", { ph: "default" }],
     ], (o) => `${o.name || "New comp"}${o.comp_date ? ` · ${staleDays(o.comp_date)}d old${staleDays(o.comp_date) > cs.comp_stale_days ? " ⚠" : ""}` : ""}`,
-      () => ({ name: "", match_keywords: [], comp_aud: null, comp_source: "", comp_date: today }))}
+      () => ({ name: "", match_keywords: [], comp_aud: null, comp_source: "", comp_date: today }), "comps")}
   </div>
-  <div class="card"><h2>Auto-comp sources</h2>
+  <div class="card"><h2>Comp rules</h2>
     ${settingInputs(cs, [
-      ["marketplace_insights_enabled", "eBay Marketplace Insights (turn on once eBay approves access)", "bool"],
-      ["exclude_best_offer", "Ignore Best Offer sales in medians (hidden accepted price)", "bool"],
+      ["marketplace_insights_enabled", "eBay Marketplace Insights on", "bool"],
+      ["exclude_best_offer", "Ignore Best Offer sales (hidden accepted price)", "bool"],
       ["comp_cache_hours", "Re-check a comp after (hours)", "num"], ["comp_stale_days", "Warn when comp older than (days)", "num"],
       ["stale_comp_days_for_multiplier", "Very stale after (days)", "num"], ["stale_comp_profit_multiplier", "Very stale: profit bar x", "num"],
     ])}
-    <label style="margin-top:12px">Price tracker sites</label>
-    ${cs.trackers.map((t, i) => `<label><input type="checkbox" data-tr="${i}" ${t.enabled ? "checked" : ""}>${esc(t.label)} <span class="mute">(${esc(t.search_url)})</span></label>`).join("")}
-    <p class="mute">Off by default until you've confirmed each site's search URL works (Settings > Advanced to edit). They're asked at most once a day per card.</p>
+    ${settingInputs(cs.sold_filters, [
+      ["days", "Sold window (days)", "num"], ["trim_outliers", "Trim outliers", "bool"],
+      ["exclude_keywords", "Ignore sold listings containing", "lines"], ["graded_keywords", "Graded words (ignored unless asked for)", "lines"],
+    ])}
   </div>
-  <div class="card"><h2>Auto-comp cache</h2><div id="cache" class="mute">Loading…</div></div>
+  <div class="card"><h2>Comp cache</h2><div id="cache" class="mute">Loading…</div></div>
   ${saveBar()}`;
-  document.querySelectorAll("[data-tr]").forEach((c) => (c.onchange = () => { cs.trackers[+c.dataset.tr].enabled = c.checked; markDirty(); }));
+  $("#tpOn").onchange = (e) => { tp.enabled = e.target.checked; markDirty(); };
+  $("#tcgo").onclick = async () => {
+    const q = $("#tcq").value.trim(); if (!q) return;
+    $("#tcout").innerHTML = `<div class="mute">Checking…</div>`;
+    try {
+      const r = await api("test-comp", { method: "POST", body: { query: q } });
+      $("#tcout").innerHTML = (r.note ? `<div class="err">${esc(r.note)}</div>` : "") + r.results.map((x) => `<div class="item"><b>${esc(x.source)}</b> ${x.error ? `<div class="err">${esc(x.error)}</div>` : x.result ? `<div class="big">${money(x.result.comp_aud)}</div><div class="mute">${x.result.sample ? x.result.sample + " AU sales" : ""}${x.result.last_sold ? " · last sold " + fmtDate(x.result.last_sold) : ""}${x.result.matched ? " · matched “" + esc(x.result.matched) + "”" : ""}</div>` : `<div class="mute">No match / not enough sales</div>`}</div>`).join("") + (r.manual ? `<div class="item"><b>My comps</b> <div class="mute">${esc(r.manual.name)}: ${money(r.manual.comp_aud)} (${esc(r.manual.comp_date || "")})</div></div>` : "");
+    } catch (e) { $("#tcout").innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+  };
   try {
     const { cache } = await api("comps-cache");
     const rows = Object.entries(cache);
-    $("#cache").innerHTML = rows.length ? rows.map(([k, v]) => `<div>${esc(k)}: <b>${v.comp_aud === null ? "none found" : money(v.comp_aud)}</b> <span class="mute">${esc(v.label || v.source)} · ${ago(v.fetched_at)}</span></div>`).join("") : "Empty - fills as deals are evaluated.";
+    $("#cache").innerHTML = rows.length ? rows.map(([k, v]) => `<div>${esc(k)}: <b>${v.comp_aud === null ? "none found" : money(v.comp_aud)}</b> <span class="mute">${esc(v.label || v.source)}${v.sample ? ` · ${v.sample} AU sales` : ""} · ${when(v.fetched_at)}</span></div>`).join("") : "Empty - fills as deals are evaluated.";
   } catch (e) { $("#cache").textContent = e.message; }
 }
 
@@ -368,16 +540,17 @@ async function renderRetail() {
   const sites = Object.entries(r.sites).map(([k, s]) => [k, s.label + (s.experimental ? " (experimental)" : "")]);
   $("#app").innerHTML = `
   <div class="card"><h2>Watches</h2>
-    <p class="mute">Set a target (alerts when landed price is at or under it) and/or watch stock (alerts when it comes back). Set a drop window to check every ${r.drop_interval_minutes} min during a known release.</p>
+    <p class="mute">Pick a set and product (or type). Set a target (alerts when landed price is at or under it) and/or watch stock. A drop window checks every ${r.drop_interval_minutes} min during a known release. Drop times are your local time (${esc(tzName())}).</p>
     ${listEditor(r.watches, [
-      ["retailer", "Retailer", "select", { options: sites }],
+      ["retailer", "Retailer", "select", { options: sites, full: true }],
+      SET_FIELD, PRODUCT_FIELD,
       ["query", "Search", "str", { ph: "pokemon elite trainer box" }],
       ["target_price", "Target landed $", "num"],
-      ["match", "Must contain (optional)", "str", { ph: "defaults to the search words" }],
+      ["match", "Must contain", "str", { full: true, ph: "defaults to the search words" }],
       ["watch_stock", "Alert on restock", "bool", { full: true }],
       ["drop_start", "Drop window start", "dt"], ["drop_end", "Drop window end", "dt"],
       ["_test"],
-    ], (o) => `${r.sites[o.retailer]?.label || o.retailer} · ${o.query || "new"}`, () => ({ retailer: "bigw", query: "", watch_stock: true }))}
+    ], (o) => `${r.sites[o.retailer]?.label || o.retailer} · ${o.query || "new"}`, () => ({ retailer: "bigw", query: "", watch_stock: true }), "retail")}
   </div>
   <div class="card"><h2>Drop day checklist</h2>
     <ol class="check">
@@ -403,20 +576,147 @@ async function renderRetail() {
       const h = (v.history || []).map((x) => x[1]).filter((x) => x != null);
       const mn = Math.min(...h), mx = Math.max(...h);
       const spark = h.slice(-24).map((p) => blocks[mx === mn ? 3 : Math.round(((p - mn) / (mx - mn)) * 7)]).join("");
-      return `<div class="item"><div class="top"><b>${esc(v.name)}</b><span class="pill ${v.inStock === false ? "restock" : "buy"}">${v.inStock === false ? "OUT" : v.inStock ? "IN" : "?"}</span></div><div class="mute">${esc(k.split("|")[0])} · ${money(v.price)} · low ${money(mn)} · ${ago(v.checkedAt)}</div><div class="spark">${spark}</div>${v.url ? `<a href="${esc(v.url)}" target="_blank" rel="noopener">Open</a>` : ""}</div>`;
+      return `<div class="item"><div class="top"><b>${esc(v.name)}</b><span class="pill ${v.inStock === false ? "restock" : "buy"}">${v.inStock === false ? "OUT" : v.inStock ? "IN" : "?"}</span></div><div class="mute">${esc(k.split("|")[0])} · ${money(v.price)} · low ${money(mn)} · ${when(v.checkedAt)}</div><div class="spark">${spark}</div>${v.url ? `<a href="${esc(v.url)}" target="_blank" rel="noopener">Open</a>` : ""}</div>`;
     }).join("") : "Nothing yet - prices appear after the first checks.";
   } catch (e) { $("#prices").textContent = e.message; }
 }
+
+/* ---------------- Stock (cards & sealed you bought to resell) ---------------- */
+let stock = null, stockTotals = null, stockDirty = false, stockFilter = LS.get("stockFilter", "active"), openStock = null;
+const STOCK_FIELDS = [
+  SET_FIELD,
+  ["name", "Card or product", "combo", { src: "sealed_or_card", ph: "Charizard ex, or pick a sealed product" }],
+  ["number", "Card number", "str", { ph: "199/165" }],
+  ["grade", "Condition / grade", "combo", { src: "grades", ph: "Raw" }],
+  ["qty", "Qty", "num", { ph: "1" }],
+  ["paid_each", "Paid each $", "num"],
+  ["shipping_in", "Shipping paid $ (total)", "num", { ph: "0" }],
+  ["bought_on", "Bought on", "date"],
+  ["bought_from", "Bought from", "str", { ph: "eBay seller, store, market" }],
+  ["status", "Status", "select", { options: [["holding", "Holding"], ["listed", "Listed"], ["sold", "Sold"]] }],
+  ["list_price", "Listed at $", "num"],
+  ["sold_price", "Sold for $ (item price)", "num"],
+  ["sold_on", "Sold on", "date"],
+  ["ebay_item_id", "eBay item number", "str", { ph: "links it to your listing" }],
+  ["comp_query", "Price it as (optional)", "str", { full: true, ph: "defaults to set + name + number + grade" }],
+  ["manual_value", "My own value $ (if no comp)", "num"],
+  ["notes", "Notes", "str", { full: true }],
+];
+async function loadStock() { const r = await api("stock"); stock = r.items.map(({ pricing, ...it }) => ({ ...it, _p: pricing })); stockTotals = r.totals; stockDirty = false; }
+async function saveStock() {
+  try { await api("stock", { method: "PUT", body: { items: stock.map(({ _p, ...it }) => it) } }); await loadStock(); toast("Stock saved ✓"); render(); }
+  catch (e) { alert("Not saved: " + e.message); }
+}
+function stockTitle(it) { return [it.set, it.name, it.number, it.grade && it.grade !== "Raw" ? it.grade : ""].filter(Boolean).join(" ") || "New item"; }
+
+async function renderStock() {
+  sub.stock ||= "stock";
+  const seg = `<div class="seg"><button data-s="stock" class="${sub.stock === "stock" ? "on" : ""}">My stock</button><button data-s="store" class="${sub.stock === "store" ? "on" : ""}">My eBay listings</button></div>`;
+  if (sub.stock === "store") return renderStore(seg);
+  if (!stock) { $("#app").innerHTML = seg + `<div class="card mute">Loading…</div>`; bindSeg(); try { await loadStock(); } catch (e) { $("#app").innerHTML = seg + `<div class="err">${esc(e.message)}</div>`; bindSeg(); return; } }
+  const t = stockTotals || {};
+  const shown = stock.map((it, i) => [it, i]).filter(([it]) => stockFilter === "all" ? true : stockFilter === "sold" ? it.status === "sold" : it.status !== "sold");
+  const fee = Math.round(cfg.ebay.fee_rate * 100);
+  $("#app").innerHTML = seg + `
+  <div class="card"><h2>Overview</h2><div class="grid">
+    <div class="stat"><div class="k">Invested (held)</div><div class="v">${money(t.invested)}</div></div>
+    <div class="stat"><div class="k">Market value (held)</div><div class="v">${money(t.holdingValue)}</div></div>
+    <div class="stat"><div class="k">Realised profit</div><div class="v" style="color:${(t.realised || 0) >= 0 ? "var(--good)" : "var(--bad)"}">${money(t.realised)}</div></div>
+    <div class="stat"><div class="k">Held / sold</div><div class="v">${t.holdingCount || 0} / ${t.soldCount || 0}</div></div>
+  </div>
+  <p class="mute" style="margin:8px 0 0">Recommended prices use AU sold comps, ${fee}% eBay fees and ${money(cfg.ebay.outbound_postage)} postage, and never go below your break-even.</p>
+  <div class="row" style="margin-top:10px"><button class="btn pri" id="stAdd">+ Add item</button><button class="btn" id="stRefresh">Refresh market prices</button></div><div id="stOut"></div></div>
+  <div class="chips">${[["active", "Holding & listed"], ["sold", "Sold"], ["all", "All"]].map(([k, l]) => `<button data-c="${k}" class="${stockFilter === k ? "on" : ""}">${l}</button>`).join("")}</div>
+  <div id="stList">${shown.length ? shown.map(([it, i]) => stockCard(it, i)).join("") : `<div class="card mute">Nothing here yet. Tap “+ Add item” after you buy something.</div>`}</div>
+  <div class="savebar ${stockDirty ? "show" : ""}" id="stSave"><button class="btn pri">Save stock</button></div>`;
+  bindSeg();
+  document.querySelectorAll(".chips button").forEach((b) => (b.onclick = () => { stockFilter = b.dataset.c; LS.set("stockFilter", stockFilter); render(); }));
+  $("#stAdd").onclick = () => { stock.unshift({ id: Math.random().toString(36).slice(2, 10), qty: 1, grade: "Raw", status: "holding", bought_on: localToday(), shipping_in: 0 }); openStock = stock[0].id; stockDirty = true; stockFilter = "active"; render(); };
+  $("#stRefresh").onclick = async () => {
+    if (stockDirty) await saveStock();
+    $("#stOut").innerHTML = `<div class="mute">Looking up AU sold prices…</div>`;
+    try { await api("stock/refresh", { method: "POST" }); await loadStock(); render(); toast("Market prices updated"); }
+    catch (e) { $("#stOut").innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+  };
+  $("#stSave").querySelector("button").onclick = saveStock;
+  const list = $("#stList");
+  list.querySelectorAll("[data-edit]").forEach((b) => (b.onclick = () => { openStock = openStock === b.dataset.edit ? null : b.dataset.edit; render(); }));
+  list.querySelectorAll("[data-sdel]").forEach((b) => (b.onclick = () => { if (confirm("Delete this item?")) { stock.splice(+b.dataset.sdel, 1); stockDirty = true; render(); } }));
+  list.querySelectorAll("[data-sold]").forEach((b) => (b.onclick = () => {
+    const it = stock[+b.dataset.sold];
+    const v = prompt("Sold for $ (item price, not postage):", it.list_price ?? it._p?.recommended ?? "");
+    if (v === null || v === "" || isNaN(Number(v))) return;
+    it.status = "sold"; it.sold_price = Number(v); it.sold_on = localToday(); stockDirty = true; saveStock();
+  }));
+  bindFields(list, stock, "stock", () => { stockDirty = true; $("#stSave").classList.add("show"); });
+}
+
+function stockCard(it, i) {
+  const p = it._p || {};
+  const pill = it.status === "sold" ? ["buy", "SOLD"] : it.status === "listed" ? ["drop", "LISTED"] : ["wait", "HOLDING"];
+  const mk = it.market;
+  const mkLine = mk ? `${money(mk.comp_aud)} · ${esc(mk.label)}${mk.sample ? `, ${mk.sample} AU sales` : ""} · ${fmtDate(mk.as_of)}` : it.manual_value ? `${money(it.manual_value)} (your value)` : "no comp yet - tap Refresh";
+  const open = openStock === it.id;
+  return `<div class="item">
+    <div class="top"><b>${esc(stockTitle(it))}${(it.qty || 1) > 1 ? ` ×${it.qty}` : ""}</b><span class="pill ${pill[0]}">${pill[1]}</span></div>
+    ${it.status === "sold" ? `
+      <div class="kv"><div><div class="k">Cost</div><div class="v">${money(p.cost)}</div></div><div><div class="k">Sold</div><div class="v">${money(it.sold_price)}</div></div><div><div class="k">Profit</div><div class="v" style="color:${(p.realised || 0) >= 0 ? "var(--good)" : "var(--bad)"}">${money(p.realised)}${p.roi !== null && p.roi !== undefined ? ` (${p.roi}%)` : ""}</div></div></div>
+      <div class="mute" style="margin-top:6px">Sold ${esc(fmtDate(it.sold_on))} · after ${Math.round((p.fee || 0) * 100)}% fees + ${money(p.post)} post</div>` : `
+      <div class="mute" style="margin-top:4px">Market: ${mkLine}</div>
+      <div style="margin-top:6px">List at <span class="big">${money(p.recommended)}</span> <span class="mute">(${esc(p.basis || "")})</span></div>
+      <div class="kv"><div><div class="k">Cost</div><div class="v">${money(p.cost)}</div></div><div><div class="k">Break-even</div><div class="v">${money(p.breakeven)}</div></div><div><div class="k">Profit at rec.</div><div class="v" style="color:${(p.profitAtRecommended || 0) >= 0 ? "var(--good)" : "var(--bad)"}">${money(p.profitAtRecommended)}</div></div></div>
+      ${it.status === "listed" && it.list_price ? `<div class="mute" style="margin-top:6px">Listed at ${money(it.list_price)}${it.ebay_url ? ` · <a href="${esc(it.ebay_url)}" target="_blank" rel="noopener">open</a>` : ""}</div>` : ""}
+      ${p.warning ? `<div class="warnbox">${esc(p.warning)}</div>` : ""}`}
+    <div class="row" style="margin-top:8px"><button class="btn sm" data-edit="${esc(it.id)}">${open ? "Close" : "Edit"}</button>${it.status !== "sold" ? `<button class="btn sm" data-sold="${i}">Mark sold</button>` : ""}<button class="btn sm danger" data-sdel="${i}">Delete</button></div>
+    ${open ? `<div class="two" style="margin-top:6px">${STOCK_FIELDS.map((f) => fieldHtml(it, i, f)).join("")}</div>` : ""}
+  </div>`;
+}
+
+async function renderStore(seg) {
+  const ms = cfg.my_store;
+  $("#app").innerHTML = seg + `<div class="card"><h2>My eBay listings</h2>
+    ${ms.seller_username ? `<p class="mute">Seller <b>${esc(ms.seller_username)}</b> · checked every ${ms.interval_hours}h${ms.enabled ? "" : " (watcher OFF - turn on in Settings)"} · alerts when a price is more than ${ms.adjust_threshold_pct}% off market, and never suggests below your break-even.</p>` : `<div class="err">Add your eBay seller username in Settings → My eBay store.</div>`}
+    <div class="row"><button class="btn pri" id="msRun">Check now</button><button class="btn" id="msDry">Preview alerts</button></div><div id="msOut"></div></div>
+    <div id="msList" class="mute">Loading…</div>`;
+  bindSeg();
+  const show = (r) => {
+    const rows = r.listings || [];
+    const pill = { LOWER: ["lower", "LOWER"], RAISE: ["raise", "RAISE"], BELOW_COST: ["below", "BELOW COST"], OK: ["buy", "OK"], NO_COMP: ["wait", "NO COMP"] };
+    $("#msList").innerHTML = (r.lastRun ? `<p class="mute">Last checked ${when(r.lastRun)}</p>` : "") + (rows.length ? rows.map((x) => `<div class="item">
+      <div class="top"><b>${esc(x.title)}</b><span class="pill ${pill[x.action]?.[0] || ""}">${pill[x.action]?.[1] || x.action}</span></div>
+      <div class="kv"><div><div class="k">Your price</div><div class="v">${money(x.price)}</div></div><div><div class="k">Market</div><div class="v">${money(x.market)}</div></div><div><div class="k">Break-even</div><div class="v">${x.breakeven ? money(x.breakeven) : "link stock"}</div></div></div>
+      ${x.suggested ? `<div style="margin-top:6px">Suggested: <span class="big">${money(x.suggested)}</span> <span class="mute">${esc(x.reason)}</span></div>` : `<div class="mute" style="margin-top:6px">${esc(x.reason || "")}</div>`}
+      ${x.compLabel ? `<div class="mute">${esc(x.compLabel)}</div>` : ""}
+      <a href="${esc(x.url)}" target="_blank" rel="noopener">Open listing →</a>
+    </div>`).join("") : `<div class="card mute">No listings checked yet.</div>`);
+  };
+  try { show(await api("store")); } catch (e) { $("#msList").innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+  $("#msRun").onclick = async () => { const r = await action("Store check", "run/store", {}, $("#msOut")); if (r) { show({ ...r, lastRun: new Date().toISOString() }); stock = null; } };
+  $("#msDry").onclick = () => action("Store preview", "run/store?dry=1", {}, $("#msOut"));
+}
+function bindSeg() { document.querySelectorAll(".seg button").forEach((b) => (b.onclick = () => { sub.stock = b.dataset.s; render(); })); }
 
 /* ---------------- Settings ---------------- */
 function renderSettings() {
   $("#app").innerHTML = `
   <div class="card"><h2>General</h2>
-    ${settingInputs(cfg, [["timezone", "Time zone", "str"]])}
+    ${settingInputs(cfg, [["timezone", "Time zone for all times shown and sent", "select", "Melbourne/Sydney time switches to AEDT in summer, like your clock. Pick AEST all year if you want fixed UTC+10.", [["Australia/Sydney", "Melbourne / Sydney time (AEST, AEDT in summer)"], ["Australia/Brisbane", "AEST all year (UTC+10)"], ["Australia/Adelaide", "Adelaide time (ACST/ACDT)"], ["Australia/Perth", "Perth time (AWST)"]]]])}
     ${settingInputs(cfg.alerts, [["heartbeat_hour", "Heartbeat hour (local, 0-23)", "num"], ["max_per_hour", "Max alerts / hour", "num", "extras roll into one summary"]])}
   </div>
+  <div class="card"><h2>My eBay store</h2>
+    <p class="mute">Reads your live listings by seller username (public data, uses your eBay keys, no login needed) and alerts when a price should move with the AU market. It never changes prices on eBay for you.</p>
+    ${settingInputs(cfg.my_store, [
+      ["enabled", "Watch my listings", "bool"], ["seller_username", "eBay seller username", "str"],
+      ["search_q", "Only listings matching", "str", "default: pokemon"], ["interval_hours", "Check every (hours)", "num"],
+      ["adjust_threshold_pct", "Alert when off market by (%)", "num"], ["cooldown_hours", "Repeat alert after (hours)", "num"],
+    ])}
+  </div>
+  <div class="card"><h2>Resale pricing</h2>
+    ${settingInputs(cfg.stock, [["target_profit_pct", "Target profit (fraction of cost)", "num", "0.2 = 20%, used when there's no comp"], ["target_profit_min", "Minimum target profit $", "num"]])}
+    <p class="mute">Fee rate and outbound postage come from the eBay tab (${Math.round(cfg.ebay.fee_rate * 100)}% and ${money(cfg.ebay.outbound_postage)}).</p>
+  </div>
   <div class="card"><h2>Advanced (full config)</h2>
-    <p class="mute">Edit everything here, including retailer endpoints (anything marked VERIFY) and tracker URLs. Saving checks it first.</p>
+    <p class="mute">Edit everything here, including retailer endpoints (anything marked VERIFY), the set list (catalog) and TCG Prices AU field paths. Saving checks it first.</p>
     <textarea id="adv" style="min-height:300px">${esc(JSON.stringify(cfg, null, 2))}</textarea>
     <div class="row" style="margin-top:8px">
       <button class="btn pri" id="advSave">Save full config</button>
@@ -430,13 +730,13 @@ function renderSettings() {
   <div class="card"><h2>Help</h2><div class="mute">
     <p><b>Phone alerts:</b> install ntfy, tap +, subscribe to your topic name (the NTFY_TOPIC value on Netlify).</p>
     <p><b>eBay keys:</b> developer.ebay.com → Application Keys → <b>Production</b> App ID + Cert ID → add as EBAY_CLIENT_ID / EBAY_CLIENT_SECRET in Netlify → Environment variables → redeploy. Then Home → Test eBay. If it says access denied, apply for the Application Growth Check in the developer portal.</p>
-    <p><b>Sold data:</b> eBay has no open sold-price API. Apply for Marketplace Insights at the same time; until then the app uses your comps list and any tracker sites you turn on.</p>
+    <p><b>AU sold prices:</b> add a TCG Prices AU API key as TCGPRICES_API_KEY on Netlify. Also apply for eBay Marketplace Insights in the developer portal.</p>
   </div></div>`;
   $("#advSave").onclick = () => { try { cfg = JSON.parse($("#adv").value); saveConfig(); } catch (e) { alert("That isn't valid JSON: " + e.message); } };
   $("#advReset").onclick = () => { if (confirm("Replace the editor contents with defaults? (Not saved until you tap Save.)")) $("#adv").value = JSON.stringify(defaults, null, 2); };
 }
 
-window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+window.addEventListener("beforeunload", (e) => { if (dirty || stockDirty) { e.preventDefault(); e.returnValue = ""; } });
 document.addEventListener("visibilitychange", async () => { if (!document.hidden && cfg && !dirty && tab === "home") { try { status = await api("status"); renderNav(); render(); } catch {} } });
 boot();
 </script>

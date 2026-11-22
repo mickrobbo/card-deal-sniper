@@ -22,6 +22,22 @@ Every alert leads with the **landed** price. The app only sends alerts. It never
 
 Storage is **Netlify Blobs**, so there's no database to set up.
 
+## New: stock, store watch, AU sold prices, AEST
+
+- **Dropdowns:** the eBay, Comps and Retail screens have Set and Product dropdowns. They cover every English set from Base Set to Delta Reign, plus all the sealed product types. You can still type your own text in either one. Picking a set and product fills in the name, the match keywords (ETB, display and other ways sellers write it) and the search text. To add new sets, edit `catalog` in Settings → Advanced.
+- **Stock tab:** for the cards and sealed items you buy to resell. Each item records what you paid plus inbound shipping, and the tab shows:
+  - your **cost** and **break-even** (which includes the 13% eBay fee and your outbound postage)
+  - a **recommended list price**: the AU market price, never below your break-even
+  - the profit at that price, and realised profit and ROI once you mark the item sold
+- **My eBay listings:** add your seller username in Settings. Every 6 hours the app reads your live listings, which is public data, so it only needs your eBay app keys. It links each listing to a Stock item and alerts you to **RAISE**, **LOWER** or **BELOW COST**. A suggested price never goes below your break-even. It doesn't change prices on eBay for you.
+- **AU sold prices:**
+  - **TCG Prices AU API** (eBay AU sold data with outliers filtered). Needs a key: add it as the `TCGPRICES_API_KEY` env var.
+  - **eBay Marketplace Insights**, once eBay approves your access.
+  - **Filters on every sold price:** AU and AUD only, the title must match, empties, fakes and lots are ignored, graded slabs are ignored unless you ask for them, outliers are trimmed, and the comp is the median of the last 30 days.
+  - Alerts show how many sales the comp is based on.
+  - TCG Prices AU's terms require crediting them, and they're credited in alerts and the dashboard. Their 24-hour caching limit is enforced.
+- **Times:** everything shows Melbourne/Sydney time. That's AEST, or AEDT during daylight saving, like your clock. For fixed AEST all year, choose that option in Settings.
+
 ## Setup (about 15 minutes)
 
 The Netlify site **card-deal-sniper** has already been created, and `ADMIN_KEY` and `NTFY_TOPIC` are already set on it.
