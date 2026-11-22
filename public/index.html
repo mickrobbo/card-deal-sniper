@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<title>Card Deal Sniper</title>
+<style>
+  :root{--bg:#0f1115;--panel:#171a21;--panel2:#1e222b;--line:#2a2f3a;--text:#e8eaee;--mute:#9aa1ad;--acc:#ffcb05;--good:#3ecf8e;--bad:#ff5d5d;--warn:#ffb020;--blue:#5aa9ff;--r:14px}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  header{position:sticky;top:0;z-index:5;background:rgba(15,17,21,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:12px 16px calc(10px) ;display:flex;align-items:center;gap:10px}
+  header h1{font-size:17px;margin:0;letter-spacing:.3px;flex:1}
+  header h1 span{color:var(--acc)}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--mute);box-shadow:0 0 0 3px rgba(255,255,255,.05)}
+  .dot.ok{background:var(--good)} .dot.bad{background:var(--bad)} .dot.warn{background:var(--warn)}
+  main{max-width:820px;margin:0 auto;padding:14px 14px 96px}
+  nav{position:fixed;bottom:0;left:0;right:0;z-index:5;background:var(--panel);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+  nav button{flex:1;background:none;border:0;color:var(--mute);padding:10px 0 9px;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer}
+  nav button b{font-size:18px;font-weight:400}
+  nav button.on{color:var(--acc)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:12px}
+  .card h2{font-size:14px;margin:0 0 10px;color:var(--mute);text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .stat{background:var(--panel2);border-radius:10px;padding:10px 12px}
+  .stat .k{font-size:12px;color:var(--mute)} .stat .v{font-size:20px;font-weight:650;margin-top:2px}
+  .bar{height:6px;background:var(--line);border-radius:6px;overflow:hidden;margin-top:6px}.bar i{display:block;height:100%;background:var(--acc)}
+  button.btn{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;cursor:pointer;font-weight:550}
+  button.btn:active{transform:scale(.98)}
+  button.pri{background:var(--acc);color:#111;border-color:var(--acc)}
+  button.danger{color:var(--bad)}
+  button.sm{padding:6px 10px;font-size:13px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .row>*{flex:0 0 auto}
+  label{display:block;font-size:12px;color:var(--mute);margin:8px 0 4px}
+  input,select,textarea{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:9px 10px;font:inherit}
+  textarea{min-height:80px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace}
+  input[type=checkbox]{width:auto;transform:scale(1.25);margin-right:8px}
+  .two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 10px}.two>*{min-width:0}
+  .item>b{display:block;color:var(--text);margin-top:4px}
+  .item .top .row{flex-wrap:nowrap}
+  .item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+  .item .top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+  .item .top b{font-size:14px}
+  pre{white-space:pre-wrap;word-break:break-word;margin:6px 0 0;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;color:#d6dae2}
+  .mute{color:var(--mute);font-size:12px}
+  .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:650;background:var(--line)}
+  .pill.buy{background:rgba(62,207,142,.18);color:var(--good)} .pill.wait{background:rgba(255,176,32,.15);color:var(--warn)}
+  .pill.restock{background:rgba(255,93,93,.18);color:var(--bad)} .pill.drop{background:rgba(90,169,255,.18);color:var(--blue)}
+  .err{background:rgba(255,93,93,.1);border:1px solid rgba(255,93,93,.4);color:#ffb3b3;border-radius:10px;padding:10px;font-size:13px;margin-bottom:10px}
+  .okmsg{background:rgba(62,207,142,.1);border:1px solid rgba(62,207,142,.4);color:#a8f0cf;border-radius:10px;padding:10px;font-size:13px;margin-bottom:10px}
+  .log{max-height:320px;overflow:auto;background:#0a0c10;border-radius:10px;padding:8px}
+  .seg{display:flex;background:var(--panel2);border-radius:10px;padding:3px;margin-bottom:12px}
+  .seg button{flex:1;background:none;border:0;color:var(--mute);padding:8px;border-radius:8px;font-weight:600;cursor:pointer}
+  .seg button.on{background:var(--line);color:var(--text)}
+  a{color:var(--blue)}
+  .toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:#222833;border:1px solid var(--line);padding:10px 14px;border-radius:10px;z-index:9;max-width:92%;font-size:14px;display:none}
+  .savebar{position:sticky;bottom:72px;z-index:4;display:none;margin-top:6px}
+  .savebar.show{display:block}
+  .savebar button{width:100%;box-shadow:0 6px 24px rgba(0,0,0,.5)}
+  .spark{font-family:ui-monospace,monospace;letter-spacing:1px;color:var(--acc)}
+  ol.check{padding-left:20px;margin:6px 0} ol.check li{margin:4px 0}
+  @media(min-width:700px){.grid{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+<header><div class="dot" id="dot"></div><h1>Card Deal <span>Sniper</span></h1><button class="btn sm" id="pauseBtn" style="display:none"></button></header>
+<main id="app"></main>
+<nav id="nav"></nav>
+<div class="toast" id="toast"></div>
+
+<script>
+const DEFAULT_SITE = "https://card-deal-sniper.netlify.app";
+const LS = { get(k, d) { try { return JSON.parse(localStorage.getItem("cds_" + k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem("cds_" + k, JSON.stringify(v)); } catch {} } };
+const onNetlify = /^https?:$/.test(location.protocol) && !/^(localhost|127\.)/.test(location.hostname);
+let conn = { base: onNetlify ? location.origin : LS.get("base", DEFAULT_SITE), key: LS.get("key", "") };
+let cfg = null, defaults = null, status = null, dirty = false, tab = LS.get("tab", "home"), sub = {};
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const money = (n) => (n === null || n === undefined || n === "") ? "-" : "$" + Number(n).toFixed(2).replace(/\.00$/, "");
+const until = (iso) => { const m = Math.max(1, Math.round((new Date(iso) - Date.now()) / 60000)); return m < 90 ? `in ${m} min` : `in ${Math.round(m / 60)} h`; };
+const ago = (iso) => { if (!iso) return "never"; const s = (Date.now() - new Date(iso)) / 1000; if (s < 60) return "just now"; if (s < 3600) return Math.round(s / 60) + " min ago"; if (s < 86400) return Math.round(s / 3600) + " h ago"; return Math.round(s / 86400) + " d ago"; };
+function toast(msg, ms = 2600) { const t = $("#toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => (t.style.display = "none"), ms); }
+
+async function api(path, opts = {}) {
+  const r = await fetch(conn.base.replace(/\/$/, "") + "/api/" + path, {
+    method: opts.method || "GET",
+    headers: { "Content-Type": "application/json", "X-Admin-Key": conn.key },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+    cache: "no-store",
+  });
+  let j = {}; try { j = await r.json(); } catch {}
+  if (!r.ok) { const e = new Error(j.error || (j.errors || []).join("\n") || ("HTTP " + r.status)); e.status = r.status; e.errors = j.errors; throw e; }
+  return j;
+}
+
+/* ---------------- connect screen ---------------- */
+function renderConnect(err) {
+  $("#nav").innerHTML = ""; $("#pauseBtn").style.display = "none";
+  $("#app").innerHTML = `
+  <div class="card"><h2>Connect</h2>
+    ${err ? `<div class="err">${esc(err)}</div>` : ""}
+    <p class="mute">Enter the admin key you set on Netlify (environment variable <b>ADMIN_KEY</b>). It's stored on this device only.</p>
+    ${onNetlify ? "" : `<label>Site URL</label><input id="cBase" value="${esc(conn.base)}">`}
+    <label>Admin key</label><input id="cKey" type="password" value="${esc(conn.key)}" autocomplete="current-password">
+    <div class="row" style="margin-top:12px"><button class="btn pri" id="cGo">Connect</button></div>
+  </div>`;
+  $("#cGo").onclick = async () => {
+    conn.key = $("#cKey").value.trim();
+    if (!onNetlify) conn.base = $("#cBase").value.trim().replace(/\/$/, "");
+    LS.set("key", conn.key); LS.set("base", conn.base);
+    boot();
+  };
+}
+
+/* ---------------- boot ---------------- */
+async function boot() {
+  if (!conn.key) return renderConnect();
+  $("#app").innerHTML = `<div class="card mute">Loading…</div>`;
+  try {
+    const [c, s] = await Promise.all([api("config"), api("status")]);
+    cfg = c.config; defaults = c.defaults; status = s; dirty = false;
+  } catch (e) {
+    return renderConnect(e.status === 401 ? "Wrong admin key." : `Couldn't reach the app: ${e.message}`);
+  }
+  renderNav(); render();
+}
+
+const TABS = [["home", "◉", "Home"], ["deals", "$", "Deals"], ["ebay", "e", "eBay"], ["comps", "≈", "Comps"], ["retail", "▦", "Retail"], ["settings", "⚙", "Settings"]];
+function renderNav() {
+  $("#nav").innerHTML = TABS.map(([k, i, l]) => `<button data-t="${k}" class="${tab === k ? "on" : ""}"><b>${i}</b>${l}</button>`).join("");
+  $("#nav").querySelectorAll("button").forEach((b) => (b.onclick = () => { if (dirty && !confirm("You have unsaved changes. Leave this tab without saving?")) return; if (dirty) { dirty = false; boot(); } tab = b.dataset.t; LS.set("tab", tab); renderNav(); render(); scrollTo(0, 0); }));
+  const pb = $("#pauseBtn"); pb.style.display = "";
+  pb.textContent = cfg.paused ? "▶ Resume" : "❚❚ Pause";
+  pb.onclick = async () => { cfg.paused = !cfg.paused; await saveConfig(true); };
+  const bad = status.configErrors.length || !status.env.ntfy || status.ebay.accessErrorDay || status.ebay.tokenFailSince;
+  $("#dot").className = "dot " + (cfg.paused ? "warn" : bad ? "bad" : "ok");
+}
+
+function render() {
+  try { ({ home: renderHome, deals: renderDeals, ebay: renderEbay, comps: renderComps, retail: renderRetail, settings: renderSettings })[tab](); }
+  catch (e) { $("#app").innerHTML = `<div class="err">Display error: ${esc(e.message)}</div>`; console.error(e); }
+}
+
+function markDirty() { dirty = true; const sb = $("#savebar"); if (sb) sb.classList.add("show"); }
+const saveBar = () => `<div class="savebar ${dirty ? "show" : ""}" id="savebar"><button class="btn pri" onclick="saveConfig()">Save changes</button></div>`;
+
+async function saveConfig(quiet) {
+  try {
+    await api("config", { method: "PUT", body: { config: cfg } });
+    dirty = false; toast(quiet ? (cfg.paused ? "Paused" : "Running") : "Saved ✓");
+    status = await api("status"); renderNav(); render();
+  } catch (e) {
+    alert("Not saved:\n\n" + (e.errors ? e.errors.join("\n") : e.message));
+  }
+}
+
+async function action(label, path, body, el) {
+  const out = el || $("#out");
+  if (out) out.innerHTML = `<div class="mute">${esc(label)}…</div>`;
+  try {
+    const r = await api(path, { method: "POST", body: body || {} });
+    if (out) out.innerHTML = fmtResult(label, r);
+    return r;
+  } catch (e) {
+    if (out) out.innerHTML = `<div class="err"><b>${esc(label)} failed</b><br>${esc(e.message)}</div>`;
+  }
+}
+
+function fmtResult(label, r) {
+  const errs = (r.errors || []).filter(Boolean);
+  let h = errs.length ? `<div class="err"><b>${esc(label)}: problem</b><br>${esc(errs[0])}</div>` : `<div class="okmsg"><b>${esc(label)} ✓</b></div>`;
+  if (r.total !== undefined) h += `<div class="item">Found <b>${r.total}</b> live listings. First: ${r.first ? `<a href="${esc(r.first.url)}" target="_blank">${esc(r.first.title)}</a> - ${money(r.first.price)}` : "none"}</div>`;
+  if (r.preview && r.preview.length) h += `<h2 style="margin-top:10px">Alerts that would be sent (${r.preview.length})</h2>` + r.preview.map((p) => `<div class="item"><b>${esc(p.title)}</b><pre>${esc(p.body)}</pre></div>`).join("");
+  if (r.results) h += r.results.map((x) => `<div class="item"><b>${esc(x.watch)}</b> <span class="mute">via ${esc(x.via || "-")}, ${x.found ?? "blocked"} products</span>${x.notes && x.notes.length ? `<pre>${esc(x.notes.join("\n"))}</pre>` : ""}${(x.matches || []).map((m) => `<div class="mute">${esc(m.name)} - ${money(m.price)} ${m.inStock === true ? "in stock" : m.inStock === false ? "OUT" : ""}</div>`).join("")}</div>`).join("");
+  if (r.log && r.log.length) h += `<div class="log"><pre>${esc(r.log.map((l) => l.replace(/^\S+ /, "")).join("\n"))}</pre></div>`;
+  return h;
+}
+
+/* ---------------- Home ---------------- */
+function renderHome() {
+  const s = status, e = s.ebay, pct = Math.min(100, (e.callsTodayUTC / e.cap) * 100);
+  const blocks = Object.entries(s.retail.blocks || {}).filter(([, b]) => b.until && new Date(b.until) > new Date());
+  const warn = [];
+  if (!s.env.ntfy) warn.push("NTFY_TOPIC isn't set on Netlify - no alerts can reach your phone.");
+  if (!s.env.ebayKeys) warn.push("eBay keys not set yet (EBAY_CLIENT_ID / EBAY_CLIENT_SECRET). The eBay watcher is idle until you add them.");
+  if (e.accessErrorDay) warn.push("eBay refused production Browse access - you probably need the Application Growth Check (see Settings > Help).");
+  if (e.tokenFailSince) warn.push(`eBay login failing since ${ago(e.tokenFailSince)} - check the keys are PRODUCTION keys.`);
+  s.configErrors.forEach((x) => warn.push("Config: " + x));
+  $("#app").innerHTML = `
+  ${cfg.paused ? `<div class="err">Paused - nothing is being checked. Tap Resume at the top.</div>` : ""}
+  ${warn.map((w) => `<div class="err">${esc(w)}</div>`).join("")}
+  <div class="card"><h2>Today</h2><div class="grid">
+    <div class="stat"><div class="k">eBay calls (UTC day)</div><div class="v">${e.callsTodayUTC}<span class="mute"> / ${e.cap}</span></div><div class="bar"><i style="width:${pct}%"></i></div></div>
+    <div class="stat"><div class="k">Retail checks</div><div class="v">${s.retail.checksToday}</div></div>
+    <div class="stat"><div class="k">Searches</div><div class="v">${cfg.ebay.searches.length}</div></div>
+    <div class="stat"><div class="k">Retail watches</div><div class="v">${cfg.retailers.watches.length}</div></div>
+  </div>
+  <p class="mute" style="margin:10px 0 0">Last heartbeat: ${s.meta.heartbeatDate || "not yet"} · hourly job ${ago(s.meta.lastHourly)} · ${e.seenCount} listings remembered</p></div>
+  ${blocks.length ? `<div class="card"><h2>Backing off</h2>${blocks.map(([k, b]) => `<div class="item"><div class="top"><b>${esc(k)}</b><button class="btn sm" onclick="unblock('${esc(k)}')">Clear</button></div><div class="mute">${esc(b.lastStatus)} · retry ${until(b.until)} (until ${new Date(b.until).toLocaleTimeString()})</div></div>`).join("")}</div>` : ""}
+  <div class="card"><h2>Checks</h2>
+    <div class="row">
+      <button class="btn" onclick="action('Test notification','test-ntfy')">Test phone alert</button>
+      <button class="btn" onclick="testEbay()">Test eBay</button>
+      <button class="btn" onclick="action('eBay dry run','run/ebay?dry=1')">eBay dry run</button>
+      <button class="btn" onclick="action('Retail dry run','run/retail?dry=1')">Retail dry run</button>
+      <button class="btn" onclick="action('Heartbeat','run/heartbeat')">Send heartbeat</button>
+    </div>
+    <p class="mute">Dry runs show what would alert without sending or remembering anything.</p>
+    <div id="out"></div>
+  </div>`;
+}
+async function testEbay() { const q = prompt("Search to test (live eBay AU, uses 1 call):", cfg.ebay.searches[0]?.q || "pokemon booster box"); if (q) action("eBay test", "test-ebay", { q }); }
+async function unblock(r) { await action("Clear block", "unblock", { retailer: r }); status = await api("status"); render(); }
+
+/* ---------------- Deals ---------------- */
+async function renderDeals() {
+  sub.deals ||= "alerts";
+  $("#app").innerHTML = `<div class="seg"><button data-s="alerts" class="${sub.deals === "alerts" ? "on" : ""}">Alerts sent</button><button data-s="misses" class="${sub.deals === "misses" ? "on" : ""}">No-comp misses</button></div><div id="list" class="mute">Loading…</div>`;
+  document.querySelectorAll(".seg button").forEach((b) => (b.onclick = () => { sub.deals = b.dataset.s; renderDeals(); }));
+  try {
+    if (sub.deals === "alerts") {
+      const { alerts } = await api("alerts");
+      $("#list").innerHTML = alerts.length ? alerts.map((a) => {
+        const v = /-> BUY/.test(a.body) ? ["buy", "BUY"] : /-> WAIT/.test(a.body) ? ["wait", "WAIT"] : a.kind === "restock" ? ["restock", "RESTOCK"] : ["drop", "PRICE"];
+        return `<div class="item"><div class="top"><span class="pill ${v[0]}">${v[1]}</span><span class="mute">${ago(a.sentAt)}${a.queued ? " · in summary" : ""}${a.error ? " · send failed" : ""}</span></div><b>${esc(a.title.replace(/^(DEAL|RESTOCK|PRICE DROP): /, ""))}</b><pre>${esc(a.body.replace(/\n\nhttps?:\S+$/, ""))}</pre>${a.url ? `<div style="margin-top:6px"><a href="${esc(a.url)}" target="_blank" rel="noopener">Open listing →</a></div>` : ""}</div>`;
+      }).join("") : `<div class="card mute">No alerts yet. They'll show here as well as on your phone.</div>`;
+    } else {
+      const { misses } = await api("misses");
+      $("#list").innerHTML = `<p class="mute">Listings with no comp to judge them by. Tap "Add comp" to teach the app.</p>` + (misses.length ? misses.map((m, i) => `<div class="item"><div class="top"><b>${esc(m.title)}</b></div><div class="mute">Landed ${money(m.landed)} · ${ago(m.seenAt)} · search "${esc(m.q || "")}"</div><div class="row" style="margin-top:8px"><a href="${esc(m.url)}" target="_blank" rel="noopener">Open</a><button class="btn sm" data-i="${i}">Add comp</button></div></div>`).join("") : `<div class="card mute">No misses.</div>`);
+      $("#list").querySelectorAll("button[data-i]").forEach((b) => (b.onclick = () => {
+        const m = misses[b.dataset.i];
+        cfg.comps.manual.push({ name: m.title.slice(0, 60), match_keywords: [m.title.toLowerCase().slice(0, 40)], comp_aud: null, comp_source: "", comp_date: new Date().toISOString().slice(0, 10) });
+        dirty = true; tab = "comps"; LS.set("tab", tab); renderNav(); render(); toast("Comp added - trim the keyword and set a price, then Save");
+      }));
+    }
+  } catch (e) { $("#list").innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+
+/* ---------------- generic list editor ---------------- */
+// fields: [key, label, type, opts]
+function listEditor(arr, fields, title, newItem) {
+  const id = "le" + Math.random().toString(36).slice(2, 7);
+  setTimeout(() => {
+    const root = document.getElementById(id);
+    root.querySelectorAll("[data-f]").forEach((inp) => {
+      const [i, k, type] = inp.dataset.f.split("|");
+      const ev = inp.type === "checkbox" || inp.tagName === "SELECT" ? "change" : "input";
+      inp.addEventListener(ev, () => {
+        const o = arr[+i];
+        let v = inp.type === "checkbox" ? inp.checked : inp.value;
+        if (type === "num") v = v === "" ? undefined : Number(v);
+        if (type === "list") v = v.split(",").map((x) => x.trim()).filter(Boolean);
+        if (type === "dt") v = v ? new Date(v).toISOString() : undefined;
+        if (v === undefined || v === "" || (Array.isArray(v) && !v.length && type === "list" && k !== "match_keywords")) delete o[k]; else o[k] = v;
+        markDirty();
+      });
+    });
+    root.querySelectorAll("[data-del]").forEach((b) => (b.onclick = () => { if (confirm("Remove this?")) { arr.splice(+b.dataset.del, 1); dirty = true; render(); } }));
+    root.querySelectorAll("[data-test]").forEach((b) => (b.onclick = () => action("Test watch", "run/retail?dry=1", { only: +b.dataset.test }, document.getElementById("t" + b.dataset.test))));
+    root.querySelector("[data-add]").onclick = () => { arr.push(newItem()); dirty = true; render(); };
+  });
+  const val = (o, k, type) => {
+    const v = o[k];
+    if (v === undefined || v === null) return "";
+    if (type === "list") return v.join(", ");
+    if (type === "dt") { const d = new Date(v); return isNaN(d) ? "" : new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
+    return v;
+  };
+  return `<div id="${id}">${arr.map((o, i) => `<div class="item">
+    <div class="top"><b>${esc(title(o, i))}</b><div class="row">${fields.some((f) => f[0] === "_test") ? `<button class="btn sm" data-test="${i}">Test</button>` : ""}<button class="btn sm danger" data-del="${i}">✕</button></div></div>
+    <div class="two">${fields.filter((f) => f[0] !== "_test").map(([k, label, type, opt]) => {
+      const full = opt?.full ? ' style="grid-column:1/-1"' : "";
+      if (type === "bool") return `<label${full}><input type="checkbox" data-f="${i}|${k}|bool" ${o[k] ? "checked" : ""}>${esc(label)}</label>`;
+      if (type === "select") return `<div${full}><label>${esc(label)}</label><select data-f="${i}|${k}|str">${opt.options.map(([v, l]) => `<option value="${esc(v)}" ${o[k] === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></div>`;
+      const it = type === "num" ? 'type="number" step="any" inputmode="decimal"' : type === "date" ? 'type="date"' : type === "dt" ? 'type="datetime-local"' : 'type="text"';
+      return `<div${full}><label>${esc(label)}</label><input ${it} data-f="${i}|${k}|${type}" value="${esc(val(o, k, type))}" placeholder="${esc(opt?.ph || "")}"></div>`;
+    }).join("")}</div>
+    ${fields.some((f) => f[0] === "_test") ? `<div id="t${i}"></div>` : ""}
+  </div>`).join("")}
+  <button class="btn" data-add>+ Add</button></div>`;
+}
+
+function settingInputs(obj, rows) {
+  const id = "si" + Math.random().toString(36).slice(2, 7);
+  setTimeout(() => document.getElementById(id).querySelectorAll("[data-k]").forEach((inp) => inp.addEventListener(inp.type === "checkbox" ? "change" : "input", () => {
+    const [k, type] = inp.dataset.k.split("|");
+    let v = inp.type === "checkbox" ? inp.checked : inp.value;
+    if (type === "num") v = Number(v);
+    if (type === "lines") v = v.split(/[\n,]/).map((x) => x.trim()).filter(Boolean);
+    obj[k] = v; markDirty();
+  })));
+  return `<div id="${id}" class="two">${rows.map(([k, label, type, help]) => {
+    if (type === "bool") return `<label style="grid-column:1/-1"><input type="checkbox" data-k="${k}|bool" ${obj[k] ? "checked" : ""}>${esc(label)}</label>`;
+    if (type === "lines") return `<div style="grid-column:1/-1"><label>${esc(label)}</label><textarea data-k="${k}|lines">${esc((obj[k] || []).join("\n"))}</textarea>${help ? `<div class="mute">${esc(help)}</div>` : ""}</div>`;
+    return `<div><label>${esc(label)}</label><input ${type === "num" ? 'type="number" step="any" inputmode="decimal"' : ""} data-k="${k}|${type}" value="${esc(obj[k] ?? "")}">${help ? `<div class="mute">${esc(help)}</div>` : ""}</div>`;
+  }).join("")}</div>`;
+}
+
+/* ---------------- eBay ---------------- */
+function renderEbay() {
+  const eb = cfg.ebay;
+  const perDay = Math.round(eb.searches.length * 1440 / eb.poll_interval_minutes);
+  $("#app").innerHTML = `
+  <div class="card"><h2>Search terms</h2>
+    <p class="mute">Buy It Now, Australian sellers, newest first. ~${perDay} calls/day of your ${eb.daily_call_cap} cap at ${eb.poll_interval_minutes}-min polling (plus a few for postage lookups).</p>
+    ${listEditor(eb.searches, [
+      ["q", "Search text", "str", { full: true, ph: "pokemon booster box sealed" }],
+      ["min_profit", "Min profit $", "num", { ph: "20" }],
+      ["max_landed", "Max landed $", "num", { ph: "no limit" }],
+      ["comp_query", "Auto-comp name (optional)", "str", { full: true, ph: "card/product name the trackers know it by" }],
+      ["exclude", "Extra exclude words (comma)", "list", { full: true, ph: "japanese, psa" }],
+    ], (o) => o.q || "New search", () => ({ q: "", min_profit: 20 }))}
+  </div>
+  <div class="card"><h2>Maths & filters</h2>
+    ${settingInputs(eb, [
+      ["poll_interval_minutes", "Poll every (min)", "num"], ["daily_call_cap", "Daily call cap", "num", "eBay free limit is 5,000"],
+      ["fee_rate", "Selling fee rate", "num", "0.13 = 13%"], ["outbound_postage", "Your outbound post $", "num"],
+      ["unknown_postage_estimate", "Unknown postage estimate $", "num"], ["postcode", "Your postcode", "str", "for calculated postage"],
+      ["min_seller_feedback_pct", "Min seller feedback %", "num"], ["retention_days", "Remember listings (days)", "num"],
+      ["send_wait_alerts", "Also send low-priority WAIT alerts (positive profit but under your bar)", "bool"],
+      ["enabled", "eBay watcher on", "bool"],
+      ["exclude_keywords", "Skip listings containing (one per line)", "lines", "Stops fakes, empties, code cards and proxies from triggering alerts."],
+    ])}
+  </div>${saveBar()}`;
+}
+
+/* ---------------- Comps ---------------- */
+async function renderComps() {
+  const cs = cfg.comps;
+  const today = new Date().toISOString().slice(0, 10);
+  const staleDays = (d) => Math.floor((Date.now() - new Date(d)) / 864e5);
+  $("#app").innerHTML = `
+  <div class="card"><h2>My comps</h2>
+    <p class="mute">Sold-price estimates the deal maths uses. Fresher auto-comps beat these automatically. Entries with no price still help: they tell the trackers what name to look up.</p>
+    ${listEditor(cs.manual, [
+      ["name", "Name", "str", { full: true }],
+      ["match_keywords", "Match keywords (comma)", "list", { full: true, ph: "mega evolution booster bundle" }],
+      ["comp_aud", "Sold price $", "num"], ["comp_date", "Checked on", "date"],
+      ["comp_source", "Source", "str", { ph: "eBay sold, 130point..." }], ["fee_rate", "Fee override", "num", { ph: "default" }],
+    ], (o) => `${o.name || "New comp"}${o.comp_date ? ` · ${staleDays(o.comp_date)}d old${staleDays(o.comp_date) > cs.comp_stale_days ? " ⚠" : ""}` : ""}`,
+      () => ({ name: "", match_keywords: [], comp_aud: null, comp_source: "", comp_date: today }))}
+  </div>
+  <div class="card"><h2>Auto-comp sources</h2>
+    ${settingInputs(cs, [
+      ["marketplace_insights_enabled", "eBay Marketplace Insights (turn on once eBay approves access)", "bool"],
+      ["exclude_best_offer", "Ignore Best Offer sales in medians (hidden accepted price)", "bool"],
+      ["comp_cache_hours", "Re-check a comp after (hours)", "num"], ["comp_stale_days", "Warn when comp older than (days)", "num"],
+      ["stale_comp_days_for_multiplier", "Very stale after (days)", "num"], ["stale_comp_profit_multiplier", "Very stale: profit bar x", "num"],
+    ])}
+    <label style="margin-top:12px">Price tracker sites</label>
+    ${cs.trackers.map((t, i) => `<label><input type="checkbox" data-tr="${i}" ${t.enabled ? "checked" : ""}>${esc(t.label)} <span class="mute">(${esc(t.search_url)})</span></label>`).join("")}
+    <p class="mute">Off by default until you've confirmed each site's search URL works (Settings > Advanced to edit). They're asked at most once a day per card.</p>
+  </div>
+  <div class="card"><h2>Auto-comp cache</h2><div id="cache" class="mute">Loading…</div></div>
+  ${saveBar()}`;
+  document.querySelectorAll("[data-tr]").forEach((c) => (c.onchange = () => { cs.trackers[+c.dataset.tr].enabled = c.checked; markDirty(); }));
+  try {
+    const { cache } = await api("comps-cache");
+    const rows = Object.entries(cache);
+    $("#cache").innerHTML = rows.length ? rows.map(([k, v]) => `<div>${esc(k)}: <b>${v.comp_aud === null ? "none found" : money(v.comp_aud)}</b> <span class="mute">${esc(v.label || v.source)} · ${ago(v.fetched_at)}</span></div>`).join("") : "Empty - fills as deals are evaluated.";
+  } catch (e) { $("#cache").textContent = e.message; }
+}
+
+/* ---------------- Retail ---------------- */
+async function renderRetail() {
+  const r = cfg.retailers;
+  const sites = Object.entries(r.sites).map(([k, s]) => [k, s.label + (s.experimental ? " (experimental)" : "")]);
+  $("#app").innerHTML = `
+  <div class="card"><h2>Watches</h2>
+    <p class="mute">Set a target (alerts when landed price is at or under it) and/or watch stock (alerts when it comes back). Set a drop window to check every ${r.drop_interval_minutes} min during a known release.</p>
+    ${listEditor(r.watches, [
+      ["retailer", "Retailer", "select", { options: sites }],
+      ["query", "Search", "str", { ph: "pokemon elite trainer box" }],
+      ["target_price", "Target landed $", "num"],
+      ["match", "Must contain (optional)", "str", { ph: "defaults to the search words" }],
+      ["watch_stock", "Alert on restock", "bool", { full: true }],
+      ["drop_start", "Drop window start", "dt"], ["drop_end", "Drop window end", "dt"],
+      ["_test"],
+    ], (o) => `${r.sites[o.retailer]?.label || o.retailer} · ${o.query || "new"}`, () => ({ retailer: "bigw", query: "", watch_stock: true }))}
+  </div>
+  <div class="card"><h2>Drop day checklist</h2>
+    <ol class="check">
+      <li>Be signed in to the retailer on your phone with card + address saved (or a Click & Collect store set).</li>
+      <li>Set the watch's drop window above so it checks every ${r.drop_interval_minutes} min.</li>
+      <li>In ntfy, set this topic's notifications to override Do Not Disturb. Drop alerts are sent as <b>urgent</b>.</li>
+      <li>Tap the alert's <b>Open product</b> button and check out yourself. The app never buys for you.</li>
+    </ol>
+  </div>
+  <div class="card"><h2>Latest prices</h2><div id="prices" class="mute">Loading…</div></div>
+  <div class="card"><h2>Politeness</h2>${settingInputs(r, [
+    ["default_interval_minutes", "Check every (min)", "num"], ["jitter_minutes", "Random extra (min)", "num"],
+    ["daily_cap_per_retailer", "Max requests / retailer / day", "num"], ["alert_cooldown_hours", "Re-alert cooldown (h)", "num"],
+    ["drop_interval_minutes", "Drop window interval (min)", "num"], ["user_agent", "User agent (put your email in)", "str"],
+    ["enabled", "Retail watcher on", "bool"],
+  ])}</div>
+  ${saveBar()}`;
+  try {
+    const { prices } = await api("prices");
+    const blocks = "▁▂▃▄▅▆▇█";
+    const rows = Object.entries(prices).sort((a, b) => (b[1].checkedAt || "").localeCompare(a[1].checkedAt || ""));
+    $("#prices").innerHTML = rows.length ? rows.slice(0, 60).map(([k, v]) => {
+      const h = (v.history || []).map((x) => x[1]).filter((x) => x != null);
+      const mn = Math.min(...h), mx = Math.max(...h);
+      const spark = h.slice(-24).map((p) => blocks[mx === mn ? 3 : Math.round(((p - mn) / (mx - mn)) * 7)]).join("");
+      return `<div class="item"><div class="top"><b>${esc(v.name)}</b><span class="pill ${v.inStock === false ? "restock" : "buy"}">${v.inStock === false ? "OUT" : v.inStock ? "IN" : "?"}</span></div><div class="mute">${esc(k.split("|")[0])} · ${money(v.price)} · low ${money(mn)} · ${ago(v.checkedAt)}</div><div class="spark">${spark}</div>${v.url ? `<a href="${esc(v.url)}" target="_blank" rel="noopener">Open</a>` : ""}</div>`;
+    }).join("") : "Nothing yet - prices appear after the first checks.";
+  } catch (e) { $("#prices").textContent = e.message; }
+}
+
+/* ---------------- Settings ---------------- */
+function renderSettings() {
+  $("#app").innerHTML = `
+  <div class="card"><h2>General</h2>
+    ${settingInputs(cfg, [["timezone", "Time zone", "str"]])}
+    ${settingInputs(cfg.alerts, [["heartbeat_hour", "Heartbeat hour (local, 0-23)", "num"], ["max_per_hour", "Max alerts / hour", "num", "extras roll into one summary"]])}
+  </div>
+  <div class="card"><h2>Advanced (full config)</h2>
+    <p class="mute">Edit everything here, including retailer endpoints (anything marked VERIFY) and tracker URLs. Saving checks it first.</p>
+    <textarea id="adv" style="min-height:300px">${esc(JSON.stringify(cfg, null, 2))}</textarea>
+    <div class="row" style="margin-top:8px">
+      <button class="btn pri" id="advSave">Save full config</button>
+      <button class="btn" id="advReset">Load defaults</button>
+    </div>
+  </div>
+  <div class="card"><h2>Maintenance</h2><div class="row">
+    <button class="btn" onclick="if(confirm('Forget every seen listing? Current listings may alert again.'))action('Reset seen','reset-seen')">Reset seen listings</button>
+    <button class="btn" onclick="localStorage.removeItem('cds_key');conn.key='';renderConnect()">Sign out on this device</button>
+  </div><div id="out"></div></div>
+  <div class="card"><h2>Help</h2><div class="mute">
+    <p><b>Phone alerts:</b> install ntfy, tap +, subscribe to your topic name (the NTFY_TOPIC value on Netlify).</p>
+    <p><b>eBay keys:</b> developer.ebay.com → Application Keys → <b>Production</b> App ID + Cert ID → add as EBAY_CLIENT_ID / EBAY_CLIENT_SECRET in Netlify → Environment variables → redeploy. Then Home → Test eBay. If it says access denied, apply for the Application Growth Check in the developer portal.</p>
+    <p><b>Sold data:</b> eBay has no open sold-price API. Apply for Marketplace Insights at the same time; until then the app uses your comps list and any tracker sites you turn on.</p>
+  </div></div>`;
+  $("#advSave").onclick = () => { try { cfg = JSON.parse($("#adv").value); saveConfig(); } catch (e) { alert("That isn't valid JSON: " + e.message); } };
+  $("#advReset").onclick = () => { if (confirm("Replace the editor contents with defaults? (Not saved until you tap Save.)")) $("#adv").value = JSON.stringify(defaults, null, 2); };
+}
+
+window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+document.addEventListener("visibilitychange", async () => { if (!document.hidden && cfg && !dirty && tab === "home") { try { status = await api("status"); renderNav(); render(); } catch {} } });
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "card-deal-sniper",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Personal AU trading-card deal alerts: eBay AU Buy It Now sniper, auto-comps and retailer restock/price watch, pushed to ntfy.",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@netlify/blobs": ">=8.1.0"
+  }
+}

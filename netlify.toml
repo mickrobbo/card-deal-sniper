@@ -1,0 +1,8 @@
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+  # Runs the unit tests before every deploy; a failing test stops a broken deploy going live.
+  command = "npm test"
+
+[functions]
+  node_bundler = "esbuild"
